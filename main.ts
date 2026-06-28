@@ -5,20 +5,105 @@ export const app = new App<State>();
 
 app.use(staticFiles());
 
-// this is the same as the /api/:name route defined via a file. feel free to delete this!
-app.get("/api2/:name", (ctx) => {
-  const name = ctx.params.name;
-  return new Response(
-    `Hello, ${name.charAt(0).toUpperCase() + name.slice(1)}!`,
-  );
-});
+// Endpoint JSON AniList
+app.get("/api/anilist", async (_ctx) => {
+  const anilistQuery = `
+    query {
+      User(id: 6786326) {
+        name
+        avatar {
+          large
+        }
+        statistics {
+          anime { count episodesWatched minutesWatched }
+          manga { count chaptersRead volumesRead }
+        }
+      }
+    }
+  `;
 
-// this can also be defined via a file. feel free to delete this!
-const exampleLoggerMiddleware = define.middleware((ctx) => {
-  console.log(`${ctx.req.method} ${ctx.req.url}`);
-  return ctx.next();
+  try {
+    const response = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ query: anilistQuery }),
+    });
+
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({
+          error: "AniList request failed",
+          status: response.status,
+          statusText: response.statusText,
+        }),
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
+    }
+
+    const result = await response.json();
+
+    if (!result.data || result.errors) {
+      return new Response(
+        JSON.stringify({
+          widget_error: "AniList rejected the request.",
+          anilist_response: result,
+        }),
+        {
+          status: 502,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
+    }
+
+    const user = result.data.User;
+    const animeStats = user.statistics.anime;
+    const mangaStats = user.statistics.manga;
+
+    const flatStats = {
+      username: user.name,
+      avatar_url: user.avatar.large,
+      total_anime: animeStats.count,
+      episodes_watched: animeStats.episodesWatched,
+      days_watched: Number((animeStats.minutesWatched / 1440).toFixed(1)),
+      total_manga: mangaStats.count,
+      volumes_read: mangaStats.volumesRead,
+      chapters_read: mangaStats.chaptersRead,
+    };
+
+    return new Response(JSON.stringify(flatStats), {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        error: "Worker crashed",
+        message: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
+  }
 });
-app.use(exampleLoggerMiddleware);
 
 // Include file-system based routes here
 app.fsRoutes();
