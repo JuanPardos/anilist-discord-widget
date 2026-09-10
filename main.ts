@@ -5,6 +5,8 @@ export const app = new App<State>();
 
 app.use(staticFiles());
 
+const anilistUserId = 6786326;
+
 // Endpoint JSON AniList
 app.get("/api/anilist", async (_ctx) => {
   const anilistToken = Deno.env.get("ANILIST_TOKEN");
@@ -25,7 +27,7 @@ app.get("/api/anilist", async (_ctx) => {
   }
 
   const anilistQuery = `
-    query {
+    query ($userId: Int!) {
       Viewer {
         name
         avatar {
@@ -44,6 +46,22 @@ app.get("/api/anilist", async (_ctx) => {
           }
         }
       }
+      Page(page: 1, perPage: 1) {
+        activities(
+          userId: $userId
+          sort: ID_DESC
+        ) {
+          ... on ListActivity {
+            status
+            progress
+            media {
+              title {
+                userPreferred
+              }
+            }
+          }
+        }
+      }
     }
   `;
 
@@ -57,6 +75,7 @@ app.get("/api/anilist", async (_ctx) => {
       },
       body: JSON.stringify({
         query: anilistQuery,
+        variables: { userId: anilistUserId },
       }),
     });
 
@@ -98,6 +117,7 @@ app.get("/api/anilist", async (_ctx) => {
     const user = result.data.Viewer;
     const animeStats = user.statistics.anime;
     const mangaStats = user.statistics.manga;
+    const latestActivity = result.data.Page?.activities?.[0] ?? null;
 
     const flatStats = {
       username: user.name,
@@ -110,6 +130,16 @@ app.get("/api/anilist", async (_ctx) => {
       total_manga: mangaStats.count,
       volumes_read: mangaStats.volumesRead,
       chapters_read: mangaStats.chaptersRead,
+      last_activity: latestActivity
+        ? {
+          category: "Anime",
+          text: [
+            latestActivity.status,
+            latestActivity.progress,
+            latestActivity.media.title.userPreferred,
+          ].filter(Boolean).join(" "),
+        }
+        : null,
     };
 
     return new Response(
