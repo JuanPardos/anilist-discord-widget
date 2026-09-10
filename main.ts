@@ -131,14 +131,7 @@ app.get("/api/anilist", async (_ctx) => {
       volumes_read: mangaStats.volumesRead,
       chapters_read: mangaStats.chaptersRead,
       last_activity: latestActivity
-        ? {
-          text: [
-            latestActivity.status,
-            latestActivity.progress,
-            latestActivity.media.title.userPreferred,
-          ].filter(Boolean).join(" "),
-        }
-        : null,
+        ? `${latestActivity.status}${latestActivity.progress ? ` ${latestActivity.progress}` : ""} ${latestActivity.media.title.userPreferred}`: null,
     };
 
     return new Response(
