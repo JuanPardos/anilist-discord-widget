@@ -7,16 +7,41 @@ app.use(staticFiles());
 
 // Endpoint JSON AniList
 app.get("/api/anilist", async (_ctx) => {
+  const anilistToken = Deno.env.get("ANILIST_TOKEN");
+
+  if (!anilistToken) {
+    return new Response(
+      JSON.stringify({
+        error: "Missing AniList token",
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        },
+      },
+    );
+  }
+
   const anilistQuery = `
     query {
-      User(id: 6786326) {
+      Viewer {
         name
         avatar {
           large
         }
         statistics {
-          anime { count episodesWatched minutesWatched }
-          manga { count chaptersRead volumesRead }
+          anime {
+            count
+            episodesWatched
+            minutesWatched
+          }
+          manga {
+            count
+            chaptersRead
+            volumesRead
+          }
         }
       }
     }
@@ -28,8 +53,11 @@ app.get("/api/anilist", async (_ctx) => {
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
+        "Authorization": `Bearer ${anilistToken}`,
       },
-      body: JSON.stringify({ query: anilistQuery }),
+      body: JSON.stringify({
+        query: anilistQuery,
+      }),
     });
 
     if (!response.ok) {
@@ -67,7 +95,7 @@ app.get("/api/anilist", async (_ctx) => {
       );
     }
 
-    const user = result.data.User;
+    const user = result.data.Viewer;
     const animeStats = user.statistics.anime;
     const mangaStats = user.statistics.manga;
 
@@ -76,23 +104,30 @@ app.get("/api/anilist", async (_ctx) => {
       avatar_url: user.avatar.large,
       total_anime: animeStats.count,
       episodes_watched: animeStats.episodesWatched,
-      days_watched: Number((animeStats.minutesWatched / 1440).toFixed(1)),
+      days_watched: Number(
+        (animeStats.minutesWatched / 1440).toFixed(1),
+      ),
       total_manga: mangaStats.count,
       volumes_read: mangaStats.volumesRead,
       chapters_read: mangaStats.chaptersRead,
     };
 
-    return new Response(JSON.stringify(flatStats), {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Access-Control-Allow-Origin": "*",
+    return new Response(
+      JSON.stringify(flatStats),
+      {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        },
       },
-    });
+    );
   } catch (error) {
     return new Response(
       JSON.stringify({
         error: "Worker crashed",
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error
+          ? error.message
+          : String(error),
       }),
       {
         status: 500,
@@ -105,5 +140,4 @@ app.get("/api/anilist", async (_ctx) => {
   }
 });
 
-// Include file-system based routes here
 app.fsRoutes();
