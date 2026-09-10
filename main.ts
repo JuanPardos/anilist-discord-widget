@@ -132,7 +132,6 @@ app.get("/api/anilist", async (_ctx) => {
       chapters_read: mangaStats.chaptersRead,
       last_activity: latestActivity
         ? {
-          category: "Anime",
           text: [
             latestActivity.status,
             latestActivity.progress,
