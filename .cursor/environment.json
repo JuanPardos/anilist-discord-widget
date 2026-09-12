@@ -1,0 +1,14 @@
+{
+  "name": "anilist-discord-widget",
+  "install": "if ! command -v deno >/dev/null 2>&1; then curl -fsSL https://deno.land/install.sh | sudo env DENO_INSTALL=/usr/local sh -s -- -y; fi && deno install",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "deno task dev",
+      "description": "Fresh dev server with file watching, served on http://localhost:8000"
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 8000 }
+  ]
+}
